@@ -27,7 +27,7 @@ pipeline {
         stage('Publish to Nexus') {
             steps {
                 // Deploy the artifact to Nexus
-                nexusArtifactUploader artifacts: [[artifactId: 'devops', classifier: '', file: 'target/devops.war', type: '.war']], credentialsId: 'nexus-credentials', groupId: 'com.ramankhanna', nexusUrl: '54.233.230.79:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'myrepo', version: "${env.ARTIFACT_VERSION}"
+                nexusArtifactUploader artifacts: [[artifactId: 'devops', classifier: '', file: 'target/devops.war', type: '.war']], credentialsId: 'nexus-credentials', groupId: 'com.ramankhanna', nexusUrl: '54.198.149.54:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'myrepo', version: "${env.ARTIFACT_VERSION}"
            }
         }
 
