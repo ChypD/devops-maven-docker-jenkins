@@ -1,0 +1,80 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'mvn'  // Maven tool configured in Jenkins
+    }
+
+    parameters {
+        string(name: 'IMAGE_NAME', defaultValue: 'image-name', description: 'Docker Image Name')
+        string(name: 'CONTAINER_NAME', defaultValue: 'mynewcontainer', description: 'Docker Container Name')
+        string(name: 'PORT_MAPPING', defaultValue: '8082:8080', description: 'Port Mapping for Docker')
+    }
+
+    environment {
+        ARTIFACT_VERSION = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Starting Maven Build...'
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Docker Cleanup') {
+            steps {
+                echo 'Cleaning up old Docker containers and images...'
+                script {
+                    def existingContainer = sh(script: "docker ps -aqf 'name=${params.CONTAINER_NAME}'", returnStdout: true).trim()
+                    if (existingContainer) {
+                        sh "docker rm -f ${params.CONTAINER_NAME}"
+                    }
+
+                    def existingImage = sh(script: "docker images -q ${params.IMAGE_NAME}:${ARTIFACT_VERSION}", returnStdout: true).trim()
+                    if (existingImage) {
+                        sh "docker rmi ${params.IMAGE_NAME}:${ARTIFACT_VERSION}"
+                    }
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                echo 'Building Docker Image...'
+                sh "docker build -t ${params.IMAGE_NAME}:${ARTIFACT_VERSION} ."
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo 'Deploying Docker Container...'
+                sh "docker run -d -p ${params.PORT_MAPPING} --name ${params.CONTAINER_NAME} ${params.IMAGE_NAME}:${ARTIFACT_VERSION}"
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                echo 'Performing Health Check...'
+                script {
+                    def healthStatus = sh(script: "docker inspect --format='{{.State.Health.Status}}' ${params.CONTAINER_NAME}", returnStdout: true).trim()
+                    if (healthStatus != 'healthy') {
+                        error "Health Check Failed: Container is not healthy."
+                    } else {
+                        echo "Container is healthy and running."
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+        failure {
+            echo 'Pipeline failed. Check logs for details.'
+        }
+    }
+}
