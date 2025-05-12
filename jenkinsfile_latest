@@ -78,7 +78,7 @@ pipeline {
                 }
             }
         }
-
+/*
         // Deploy Confirmation Stage
         stage('Deploy Confirmation') {
             steps {
@@ -87,7 +87,7 @@ pipeline {
                 }
             }
         }
-
+*/
         // Docker Deploy Stage
         stage('Deploy') {
             steps {
