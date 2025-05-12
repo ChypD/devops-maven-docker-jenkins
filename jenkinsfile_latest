@@ -34,13 +34,11 @@ pipeline {
             steps {
                 echo 'Cleaning up old Docker containers and images...'
                 script {
-                    // Check if the container exists and remove it
                     def existingContainer = sh(script: "docker ps -aqf 'name=${params.CONTAINER_NAME}'", returnStdout: true).trim()
                     if (existingContainer) {
                         sh "docker rm -f ${params.CONTAINER_NAME}"
                     }
 
-                    // Check if the Docker image exists and remove it
                     def existingImage = sh(script: "docker images -q ${params.IMAGE_NAME}:${ARTIFACT_VERSION}", returnStdout: true).trim()
                     if (existingImage) {
                         sh "docker rmi ${params.IMAGE_NAME}:${ARTIFACT_VERSION}"
@@ -61,11 +59,28 @@ pipeline {
             }
         }
 
+        // Docker Push to Docker Hub
+        stage('Docker Push') {
+            steps {
+                echo 'Pushing Docker Image to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: 'DOCKER_CREDENTIALS', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    script {
+                        echo 'Logging in to Docker registry...'
+                        sh 'docker login -u $DOCKER_USER -p $DOCKER_PASS'
+                        retry(2) {
+                            timeout(time: 5, unit: 'MINUTES') {
+                                sh "docker push ${params.IMAGE_NAME}:${ARTIFACT_VERSION}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Deploy Confirmation Stage
         stage('Deploy Confirmation') {
             steps {
                 script {
-                    // User confirmation before deployment
                     input(message: 'Deploy the Docker container?', ok: 'Yes, Deploy')
                 }
             }
@@ -75,14 +90,12 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo 'Deploying Docker Container...'
-                // Use Jenkins credentials for Docker login
                 withCredentials([usernamePassword(credentialsId: 'DOCKER_CREDENTIALS', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     script {
                         echo 'Logging in to Docker registry...'
-                        sh 'docker login -u $DOCKER_USER -p $DOCKER_PASS'  // Perform Docker login
-                        retry(2) {  // Retry the run step 2 times if it fails
-                            timeout(time: 5, unit: 'MINUTES') {  // Set a timeout of 5 minutes
-                                // Run the Docker container with specified port mapping and name
+                        sh 'docker login -u $DOCKER_USER -p $DOCKER_PASS'
+                        retry(2) {
+                            timeout(time: 5, unit: 'MINUTES') {
                                 sh "docker run -d -p ${params.PORT_MAPPING} --name ${params.CONTAINER_NAME} ${params.IMAGE_NAME}:${ARTIFACT_VERSION}"
                             }
                         }
@@ -95,13 +108,12 @@ pipeline {
         stage('Health Check') {
             steps {
                 echo 'Performing Health Check...'
-                retry(3) {  // Retry health check 3 times if it fails
-                    timeout(time: 3, unit: 'MINUTES') {  // Set a timeout of 3 minutes
+                retry(3) {
+                    timeout(time: 3, unit: 'MINUTES') {
                         script {
-                            // Inspect the health status of the container
                             def healthStatus = sh(script: "docker inspect --format='{{.State.Health.Status}}' ${params.CONTAINER_NAME}", returnStdout: true).trim()
                             if (healthStatus != 'healthy') {
-                                error "Health Check Failed: Container is not healthy."  // Throw an error if not healthy
+                                error "Health Check Failed: Container is not healthy."
                             } else {
                                 echo "Container is healthy and running."
                             }
@@ -113,12 +125,11 @@ pipeline {
     }
 
     post {
-        // Post build actions
         success {
-            echo 'Pipeline completed successfully.'  // Success message
+            echo 'Pipeline completed successfully.'
         }
         failure {
-            echo 'Pipeline failed. Check logs for details.'  // Failure message
+            echo 'Pipeline failed. Check logs for details.'
         }
     }
 }
