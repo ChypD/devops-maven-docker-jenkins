@@ -7,7 +7,8 @@ pipeline {
     }
 
     parameters {
-        string(name: 'IMAGE_NAME', defaultValue: 'image-name', description: 'Docker Image Name')  // Image name parameter
+        string(name: 'IMAGE_NAME', defaultValue: 'myimage', description: 'Docker Image Name')  // Image name parameter
+        string(name: 'DOCKERHUB_REPO_NAME', defaultValue: 'ramann123/myimage', description: 'Dockerhub repo Name')  // repo name parameter
         string(name: 'CONTAINER_NAME', defaultValue: 'mynewcontainer', description: 'Docker Container Name')  // Container name parameter
         string(name: 'PORT_MAPPING', defaultValue: '8082:8080', description: 'Port Mapping for Docker')  // Port mapping parameter
     }
@@ -42,7 +43,7 @@ pipeline {
 
                     def existingImage = sh(script: "docker images -q ${params.IMAGE_NAME}:${ARTIFACT_VERSION}", returnStdout: true).trim()
                     if (existingImage) {
-                        sh "docker rmi ${params.IMAGE_NAME}:${ARTIFACT_VERSION}"
+                        sh "docker rmi ${params.DOCKERHUB_REPO_NAME}:${params.IMAGE_NAME}-${ARTIFACT_VERSION}"
                     }
                 }
             }
@@ -54,7 +55,7 @@ pipeline {
                 echo 'Building Docker Image...'
                 retry(2) {  // Retry the Docker build step 2 times if it fails
                     timeout(time: 10, unit: 'MINUTES') {  // Set a timeout of 10 minutes
-                        sh "docker build -t ${params.IMAGE_NAME}:${ARTIFACT_VERSION} ."  // Build Docker image
+                        sh "docker build -t ${params.DOCKERHUB_REPO_NAME}:${params.IMAGE_NAME}-${ARTIFACT_VERSION} ."  // Build Docker image
                     }
                 }
             }
@@ -70,7 +71,7 @@ pipeline {
                         sh 'docker login -u $DOCKER_USER -p $DOCKER_PASS'
                         retry(2) {
                             timeout(time: 5, unit: 'MINUTES') {
-                                sh "docker push ${params.IMAGE_NAME}:${ARTIFACT_VERSION}"
+                                sh "docker push ${params.DOCKERHUB_REPO_NAME}:${params.IMAGE_NAME}-${ARTIFACT_VERSION}"
                             }
                         }
                     }
@@ -97,7 +98,7 @@ pipeline {
                         sh 'docker login -u $DOCKER_USER -p $DOCKER_PASS'
                         retry(2) {
                             timeout(time: 5, unit: 'MINUTES') {
-                                sh "docker run -d -p ${params.PORT_MAPPING} --name ${params.CONTAINER_NAME} ${params.IMAGE_NAME}:${ARTIFACT_VERSION}"
+                                sh "docker run -d -p ${params.PORT_MAPPING} --name ${params.CONTAINER_NAME} ${params.DOCKERHUB_REPO_NAME}:${params.IMAGE_NAME}-${ARTIFACT_VERSION}"
                             }
                         }
                     }
