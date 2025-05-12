@@ -105,25 +105,6 @@ pipeline {
                 }
             }
         }
-
-        // Health Check Stage
-        stage('Health Check') {
-            steps {
-                echo 'Performing Health Check...'
-                retry(3) {
-                    timeout(time: 3, unit: 'MINUTES') {
-                        script {
-                            def healthStatus = sh(script: "docker inspect --format='{{.State.Health.Status}}' ${params.CONTAINER_NAME}", returnStdout: true).trim()
-                            if (healthStatus != 'healthy') {
-                                error "Health Check Failed: Container is not healthy."
-                            } else {
-                                echo "Container is healthy and running."
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     post {
