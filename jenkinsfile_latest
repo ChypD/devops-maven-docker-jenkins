@@ -3,7 +3,7 @@ pipeline {
     agent { label 'agent-1' }
 
     tools {
-        maven 'mvn'  // Maven tool configured in Jenkins
+        maven 'mavn'  // Maven tool configured in Jenkins ( add mavn in tools section in jenkins)
     }
 
     parameters {
