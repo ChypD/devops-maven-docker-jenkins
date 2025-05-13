@@ -1,0 +1,43 @@
+pipeline {
+    //agent any  // Use any available Jenkins agent
+    agent { label 'agent-1' }
+
+    tools {
+        maven 'mavn'  // Maven tool configured in Jenkins ( add mavn in tools section in jenkins)
+    }
+
+    parameters {
+        string(name: 'IMAGE_NAME', defaultValue: 'myimage', description: 'Docker Image Name')  // Image name parameter
+        string(name: 'DOCKERHUB_REPO_NAME', defaultValue: 'ramann123/myimage', description: 'Dockerhub repo Name')  // repo name parameter
+        string(name: 'CONTAINER_NAME', defaultValue: 'ramanappcontainer', description: 'Docker Container Name')  // Container name parameter
+        string(name: 'PORT_MAPPING', defaultValue: '8082:8080', description: 'Port Mapping for Docker')  // Port mapping parameter
+    }
+
+    environment {
+        // Get the short hash of the current Git commit for versioning
+        ARTIFACT_VERSION = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+    }
+
+    stages {
+        // Maven Build Stage
+        stage('Build') {
+            steps {
+                echo 'Starting Maven Build...'
+                retry(3) {  // Retry the build step 3 times if it fails
+                    timeout(time: 5, unit: 'MINUTES') {  // Set a timeout of 5 minutes
+                        sh 'mvn clean package'  // Execute Maven clean and package commands
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+        failure {
+            echo 'Pipeline failed. Check logs for details.'
+        }
+    }
+}
